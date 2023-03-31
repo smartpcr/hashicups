@@ -2,7 +2,7 @@ package hashicups
 
 import (
 	"context"
-	"github.com/hashicorp-demoapp/hashicups-client-go"
+
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,11 +19,12 @@ func NewCoffeesDataSource() datasource.DataSource {
 }
 
 type coffeesDataSource struct {
-	client *hashicups.Client
+	client *Client
 }
 
 // coffeesDataSourceModel maps the data source schema data.
 type coffeesDataSourceModel struct {
+	ID      types.String   `tfsdk:"id"`
 	Coffees []coffeesModel `tfsdk:"coffees"`
 }
 
@@ -43,41 +44,56 @@ type coffeesIngredientsModel struct {
 	ID types.Int64 `tfsdk:"id"`
 }
 
-func (c coffeesDataSource) Metadata(_ context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
+func (c *coffeesDataSource) Metadata(_ context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
 	response.TypeName = request.ProviderTypeName + "_coffees"
 }
 
-func (c coffeesDataSource) Schema(_ context.Context, request datasource.SchemaRequest, response *datasource.SchemaResponse) {
+// Schema defines the schema for the data source.
+func (c *coffeesDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, response *datasource.SchemaResponse) {
 	response.Schema = schema.Schema{
+		Description: "Fetches the list of coffees.",
 		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed:    true,
+				Description: "Placeholder identifier attribute.",
+			},
 			"coffees": schema.ListNestedAttribute{
-				Computed: true,
+				Computed:    true,
+				Description: "List of coffees.",
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
-							Computed: true,
+							Description: "Numeric identifier of the coffee.",
+							Computed:    true,
 						},
 						"name": schema.StringAttribute{
-							Computed: true,
+							Description: "Product name of the coffee.",
+							Computed:    true,
 						},
 						"teaser": schema.StringAttribute{
-							Computed: true,
+							Description: "Fun tagline for the coffee.",
+							Computed:    true,
 						},
 						"description": schema.StringAttribute{
-							Computed: true,
+							Description: "Product description of the coffee.",
+							Computed:    true,
 						},
 						"price": schema.Float64Attribute{
-							Computed: true,
+							Description: "Suggested cost of the coffee.",
+							Computed:    true,
 						},
 						"image": schema.StringAttribute{
-							Computed: true,
+							Description: "URI for an image of the coffee.",
+							Computed:    true,
 						},
 						"ingredients": schema.ListNestedAttribute{
-							Computed: true,
+							Description: "List of ingredients in the coffee.",
+							Computed:    true,
 							NestedObject: schema.NestedAttributeObject{
 								Attributes: map[string]schema.Attribute{
 									"id": schema.Int64Attribute{
-										Computed: true,
+										Description: "Numeric identifier of the coffee ingredient.",
+										Computed:    true,
 									},
 								},
 							},
@@ -90,10 +106,10 @@ func (c coffeesDataSource) Schema(_ context.Context, request datasource.SchemaRe
 }
 
 // Read refreshes the Terraform state with the latest data.
-func (d *coffeesDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (c *coffeesDataSource) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var state coffeesDataSourceModel
 
-	coffees, err := d.client.GetCoffees()
+	coffees, err := c.client.GetCoffees()
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Read HashiCups Coffees",
@@ -122,6 +138,8 @@ func (d *coffeesDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		state.Coffees = append(state.Coffees, coffeeState)
 	}
 
+	state.ID = types.StringValue("placeholder")
+
 	// Set state
 	diags := resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -130,10 +148,10 @@ func (d *coffeesDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	}
 }
 
-func (c coffeesDataSource) Configure(_ context.Context, request datasource.ConfigureRequest, _ *datasource.ConfigureResponse) {
+func (c *coffeesDataSource) Configure(_ context.Context, request datasource.ConfigureRequest, _ *datasource.ConfigureResponse) {
 	if request.ProviderData == nil {
 		return
 	}
 
-	c.client = request.ProviderData.(*hashicups.Client)
+	c.client = request.ProviderData.(*Client)
 }

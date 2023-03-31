@@ -4,7 +4,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/hashicorp-demoapp/hashicups-client-go"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -33,24 +34,31 @@ func (p *hashicupsProvider) Metadata(_ context.Context, _ provider.MetadataReque
 	resp.TypeName = "hashicups"
 }
 
+// Schema defines the provider-level schema for configuration data.
 func (p *hashicupsProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
-				Optional: true,
+				Description: "URI for HashiCups API. May also be provided via HASHICUPS_HOST environment variable.",
+				Optional:    true,
 			},
 			"username": schema.StringAttribute{
-				Optional: true,
+				Description: "Username for HashiCups API. May also be provided via HASHICUPS_USERNAME environment variable.",
+				Optional:    true,
 			},
 			"password": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
+				Description: "Password for HashiCups API. May also be provided via HASHICUPS_PASSWORD environment variable.",
+				Optional:    true,
+				Sensitive:   true,
 			},
 		},
 	}
 }
 
+// Configure configures the provider.
 func (p *hashicupsProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	tflog.Info(ctx, "Configuring HashiCups provider")
+
 	var config hashicupsProviderModel
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
@@ -142,8 +150,14 @@ func (p *hashicupsProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
+	ctx = tflog.SetField(ctx, "hashicups_host", host)
+	ctx = tflog.SetField(ctx, "hashicups_username", username)
+	ctx = tflog.SetField(ctx, "hashicups_password", password)
+	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "hashicups_password")
+	tflog.Debug(ctx, "Creating HashiCups Client")
+
 	// Create the HashiCups API client using the configuration values
-	client, err := hashicups.NewClient(&host, &username, &password)
+	client, err := NewClient(&host, &username, &password)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Create HashiCups API Client",
@@ -158,14 +172,20 @@ func (p *hashicupsProvider) Configure(ctx context.Context, req provider.Configur
 	// type Configure methods.
 	resp.DataSourceData = client
 	resp.ResourceData = client
+
+	tflog.Info(ctx, "HashiCups provider configured", map[string]any{"success": true})
 }
 
+// DataSources returns the list of data sources supported by this provider.
 func (p *hashicupsProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewCoffeesDataSource,
 	}
 }
 
+// Resources returns the list of resources supported by this provider.
 func (p *hashicupsProvider) Resources(_ context.Context) []func() resource.Resource {
-	return nil
+	return []func() resource.Resource{
+		NewOrderResource,
+	}
 }
