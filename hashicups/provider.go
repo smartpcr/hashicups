@@ -161,7 +161,9 @@ func (p *hashicupsProvider) Configure(ctx context.Context, req provider.Configur
 }
 
 func (p *hashicupsProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return nil
+	return []func() datasource.DataSource{
+		NewCoffeesDataSource,
+	}
 }
 
 func (p *hashicupsProvider) Resources(_ context.Context) []func() resource.Resource {
